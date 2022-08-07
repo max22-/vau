@@ -10,7 +10,7 @@ import (
 
 type Sexp interface {
 	isSexp()
-	String() string
+	definition
 }
 
 type Atom interface {
@@ -88,6 +88,52 @@ func parse(tokens []string, idx int) (sexp Sexp, ridx int, err error) {
 	}
 }
 
+type definition interface {
+	isDefinition()
+	String() string
+}
+
+type proc func(e environment, args Sexp) (Sexp, error)
+func proc_to_func(p proc) func(environment, Sexp) (Sexp, error) {
+	return func(environment, Sexp) (Sexp, error) (p)
+}
+
+func (p proc) String() string {
+	return "<proc " + fmt.Sprintf("%v", proc_to_func(p)) + ">"
+}
+
+func (_ Symbol) isDefinition() {}
+func (_ Number) isDefinition() {}
+func (_ List) isDefinition() {}
+func (_ proc) isDefinition() {}
+
+type environment map[string]definition
+
+func eval(x Sexp, e environment) (definition, error) {
+	switch x.(type) {
+	case Symbol:
+		if def, ok := e[string(x.(Symbol))]; ok {
+			return def, nil
+		} else {
+			return x, nil
+		}
+	case List:
+		x0 := x.(List)[0]
+		p, err := eval(x0, e)
+		if err != nil {
+			return p, err
+		}
+		switch p.(type) {
+		case proc:
+			return proc_to_func(p.(proc))(e, x.(List)[1:])
+		default:
+			return nil, errors.New(fmt.Sprintf("%v", x0) + " is not a procedure")
+		}
+	default:
+		return x, nil
+	}
+}
+
 func main() {
 	rl, err := readline.New("> ")
 	if err != nil {
@@ -104,6 +150,7 @@ func main() {
 	}
 	//return
 
+	env := stdenv()
 
 	// REPL
 	for {
@@ -112,8 +159,13 @@ func main() {
 			break
 		}
 		sexp, _, err := parse(tokenize(line), 0)
+		if err != nil {
+			fmt.Printf("error: %v\n", err)
+			continue
+		}
+		val, err := eval(sexp, env)
 		if err == nil {
-			fmt.Println(sexp)
+			fmt.Println(val)
 		} else {
 			fmt.Printf("error: %v\n", err);
 		}
