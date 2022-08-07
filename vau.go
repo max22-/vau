@@ -10,12 +10,12 @@ import (
 
 type Sexp interface {
 	isSexp()
+	String() string
 }
 
 type Atom interface {
 	isAtom()
 	Sexp
-	String() string
 }
 
 type Symbol string
@@ -31,6 +31,13 @@ func (_ Number) isAtom() {}
 func (n Number) String() string { return strconv.Itoa(int(n)) }
 
 func (_ List) isSexp() {}
+func (l List) String() string {
+	es := make([]string, len(l))
+	for i, e := range l {
+		es[i] = fmt.Sprintf("%v", e)
+	}
+	return "(" + strings.Join(es, " ") + ")"
+}
 
 func tokenize(line string) []string {
 	line = strings.ReplaceAll(line, "(", " ( ")
@@ -91,7 +98,7 @@ func main() {
 	program := "(begin (define r 10) (* pi r r))"
 	sexp, _, err := parse(tokenize(program), 0)
 	if err == nil {
-		fmt.Printf("%q\n", sexp)
+		fmt.Println(sexp)
 	} else {
 		fmt.Printf("error: %v\n", err)
 	}
@@ -104,10 +111,9 @@ func main() {
 		if err != nil {
 			break
 		}
-		sexp, idx, err := parse(tokenize(line), 0)
+		sexp, _, err := parse(tokenize(line), 0)
 		if err == nil {
-			fmt.Printf("idx = %d\n", idx)
-			fmt.Printf("%q\n", sexp)
+			fmt.Println(sexp)
 		} else {
 			fmt.Printf("error: %v\n", err);
 		}
