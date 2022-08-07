@@ -41,8 +41,6 @@ func tokenize(line string) []string {
 func parseAtom(tokens []string, idx int) (Atom, int, error) {
 	token := tokens[idx]
 	if n, err := strconv.Atoi(token); err == nil {
-		fmt.Printf("token = %s\n", token)
-		fmt.Printf("n = %d\n", n)
 		return Number(n), idx + 1, nil
 	} else {
 		return Symbol(token), idx + 1, nil
@@ -91,7 +89,12 @@ func main() {
 	defer rl.Close()
 
 	program := "(begin (define r 10) (* pi r r))"
-	fmt.Printf("%q\n", tokenize(program))
+	sexp, _, err := parse(tokenize(program), 0)
+	if err == nil {
+		fmt.Printf("%q\n", sexp)
+	} else {
+		fmt.Printf("error: %v\n", err)
+	}
 	//return
 
 
