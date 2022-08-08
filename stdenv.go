@@ -15,13 +15,13 @@ func stdenv() environment {
 	}
 }
 
-func add(args *Cell, e environment) (Value, error) {
+func add(args Value, e environment) (Value, error) {
 	res := 0
 	if args == Nil {
 		return Number(res), nil
 	}
 	for {
-		val, err := eval(args.car, e)
+		val, err := eval(args.(*Cell).car, e)
 		if err != nil {
 			return val, err
 		}
@@ -31,8 +31,8 @@ func add(args *Cell, e environment) (Value, error) {
 		default:
 			return nil, errors.New("+: expected numbers")
 		}
-		if args.cdr != Nil {
-			args = args.cdr.(*Cell)
+		if args.(*Cell).cdr != Nil {
+			args = args.(*Cell).cdr.(*Cell)
 		} else {
 			break
 		}
@@ -40,13 +40,13 @@ func add(args *Cell, e environment) (Value, error) {
 	return Number(res), nil
 }
 
-func car(args *Cell, e environment) (Value, error) {
-	if args.cdr != Nil {
+func car(args Value, e environment) (Value, error) {
+	if args.(*Cell).cdr != Nil {
 		return nil, errors.New("car: invalid number of arguments")
-	} else if args.car == Nil {
+	} else if args.(*Cell).car == Nil {
 		return nil, errors.New("car: cannot get car of empty list")
 	} else {
-		val, err := eval(args.car, e)
+		val, err := eval(args.(*Cell).car, e)
 		if err != nil {
 			return val, err
 		}
@@ -59,12 +59,12 @@ func car(args *Cell, e environment) (Value, error) {
 	}
 }
 
-func list(args *Cell, e environment) (Value, error) {
+func list(args Value, e environment) (Value, error) {
 	res := args
 	for args != Nil {
-		if val, err := eval(args.car, e); err == nil {
-			args.car = val
-			args = args.cdr.(*Cell)
+		if val, err := eval(args.(*Cell).car, e); err == nil {
+			args.(*Cell).car = val
+			args = args.(*Cell).cdr.(*Cell)
 		} else {
 			return val, err
 		}

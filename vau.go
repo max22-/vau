@@ -32,7 +32,7 @@ type Number int
 var Nil *Cell = nil
 
 type environment map[string]Value
-type proc func(args *Cell, e environment) (Value, error)
+type proc func(args Value, e environment) (Value, error)
 
 func (_ Symbol) isValue() {}
 func (_ Symbol) isAtom() {}
@@ -82,8 +82,8 @@ func (p proc) String() string {
 
 func (_ proc) isValue() {}
 
-func from_proc(p proc) func(*Cell, environment) (Value, error) {
-	return func(*Cell, environment) (Value, error) (p)
+func from_proc(p proc) func(Value, environment) (Value, error) {
+	return func(Value, environment) (Value, error) (p)
 }
 
 func tokenize(line string) []string {
