@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"errors"
 	"github.com/chzyer/readline"
+	//"log"
 )
 
 // Value: Atom, Cell, or builtin function
@@ -28,6 +29,8 @@ type Atom interface {
 type Symbol string
 type Number int
 
+var Nil *Cell = nil
+
 type environment map[string]Value
 type proc func(args *Cell, e environment) (Value, error)
 
@@ -41,17 +44,17 @@ func (n Number) String() string { return strconv.Itoa(int(n)) }
 
 func (_ Cell) isValue() {}
 func (c *Cell) String() (res string) {
-	if c == nil {
+	if c == Nil {
 		return "()"
 	}
 	res = "("
 	for {
-		if c.car == nil {
+		if c.car == Nil {
 			res += "()"
 		} else {
 			res += fmt.Sprintf("%v", c.car)
 		}
-		if c.cdr == nil {
+		if c.cdr == Nil {
 			res += ")"
 			return
 		} else {
@@ -60,7 +63,7 @@ func (c *Cell) String() (res string) {
 				res += " . " + fmt.Sprintf("%v", c.cdr) + ")"
 				return
 			case *Cell:
-				if c.cdr == nil {
+				if c.cdr == Nil {
 					res += ")"
 					return
 				} else {
@@ -100,7 +103,7 @@ func parseAtom(tokens []string, idx int) (Atom, int, error) {
 
 func parseList(tokens []string, idx int) (head *Cell, ridx int, err error) {
 	var val Value
-	var c *Cell
+	var c *Cell = Nil
 	ridx = idx + 1 // We match the opening bracket
 	for ridx < len(tokens) {
 		if tokens[ridx] == ")" {
@@ -109,22 +112,22 @@ func parseList(tokens []string, idx int) (head *Cell, ridx int, err error) {
 		}
 		val, ridx, err = parse(tokens, ridx)
 		if err != nil {
-			return nil, idx, err
+			return Nil, idx, err
 		}
 		// append
-		if head == nil {
+		if head == Nil {
 			head = new(Cell)
 			c = head
 			c.car = val
-			c.cdr = nil
+			c.cdr = Nil
 		} else {
 			c.cdr = new(Cell)
 			c.cdr.(*Cell).car = val
-			c.cdr.(*Cell).cdr = nil
+			c.cdr.(*Cell).cdr = Nil
 			c = c.cdr.(*Cell)
 		}
 	}
-	return nil, idx, errors.New("Unterminated s-expression")
+	return Nil, idx, errors.New("Unterminated s-expression")
 }
 
 func parse(tokens []string, idx int) (val Value, ridx int, err error) {
@@ -153,6 +156,9 @@ func eval(x Value, e environment) (Value, error) {
 			return x, nil
 		}
 	case *Cell:
+		if x.(*Cell) == Nil {
+			return Nil, nil
+		}
 		x0 := x.(*Cell).car
 		p, err := eval(x0, e)
 		if err != nil {
