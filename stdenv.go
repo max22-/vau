@@ -60,6 +60,14 @@ func car(args *Cell, e environment) (Value, error) {
 }
 
 func list(args *Cell, e environment) (Value, error) {
-	// TODO: evaluate arguments before returning them a a list
-	return args, nil
+	res := args
+	for args != Nil {
+		if val, err := eval(args.car, e); err == nil {
+			args.car = val
+			args = args.cdr.(*Cell)
+		} else {
+			return val, err
+		}
+	}
+	return res, nil
 }
