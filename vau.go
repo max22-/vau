@@ -8,35 +8,79 @@ import (
 	"github.com/chzyer/readline"
 )
 
-type Sexp interface {
-	isSexp()
-	definition
+// Value: Atom, Cell, or builtin function
+type Value interface {
+	isValue()
+	String() string
+}
+
+type Cell struct {
+	car Value
+	cdr Value
+	Value
 }
 
 type Atom interface {
 	isAtom()
-	Sexp
+	Value
 }
 
 type Symbol string
 type Number int
-type List []Sexp
 
-func (_ Symbol) isSexp() {}
+type environment map[string]Value
+type proc func(args *Cell, e environment) (Value, error)
+
+func (_ Symbol) isValue() {}
 func (_ Symbol) isAtom() {}
 func (s Symbol) String() string { return string(s) }
 
-func (_ Number) isSexp() {}
+func (_ Number) isValue() {}
 func (_ Number) isAtom() {}
 func (n Number) String() string { return strconv.Itoa(int(n)) }
 
-func (_ List) isSexp() {}
-func (l List) String() string {
-	es := make([]string, len(l))
-	for i, e := range l {
-		es[i] = fmt.Sprintf("%v", e)
+func (_ Cell) isValue() {}
+func (c *Cell) String() (res string) {
+	if c == nil {
+		return "()"
 	}
-	return "(" + strings.Join(es, " ") + ")"
+	res = "("
+	for {
+		if c.car == nil {
+			res += "()"
+		} else {
+			res += fmt.Sprintf("%v", c.car)
+		}
+		if c.cdr == nil {
+			res += ")"
+			return
+		} else {
+			switch c.cdr.(type) {
+			case Atom:
+				res += " . " + fmt.Sprintf("%v", c.cdr) + ")"
+				return
+			case *Cell:
+				if c.cdr == nil {
+					res += ")"
+					return
+				} else {
+					res += " "
+					c = c.cdr.(*Cell)
+				}
+			}
+		}
+	}
+}
+
+
+func (p proc) String() string {
+	return "<proc " + fmt.Sprintf("%v", from_proc(p)) + ">"
+}
+
+func (_ proc) isValue() {}
+
+func from_proc(p proc) func(*Cell, environment) (Value, error) {
+	return func(*Cell, environment) (Value, error) (p)
 }
 
 func tokenize(line string) []string {
@@ -54,24 +98,36 @@ func parseAtom(tokens []string, idx int) (Atom, int, error) {
 	}	
 }
 
-func parseList(tokens []string, idx int) (l List, ridx int, err error) {
-	var sexp Sexp
-	ridx = idx + 1 // We match the opening parenthese
+func parseList(tokens []string, idx int) (head *Cell, ridx int, err error) {
+	var val Value
+	var c *Cell
+	ridx = idx + 1 // We match the opening bracket
 	for ridx < len(tokens) {
 		if tokens[ridx] == ")" {
 			ridx += 1
 			return
 		}
-		sexp, ridx, err = parse(tokens, ridx)
+		val, ridx, err = parse(tokens, ridx)
 		if err != nil {
 			return nil, idx, err
 		}
-		l = append(l, sexp)
+		// append
+		if head == nil {
+			head = new(Cell)
+			c = head
+			c.car = val
+			c.cdr = nil
+		} else {
+			c.cdr = new(Cell)
+			c.cdr.(*Cell).car = val
+			c.cdr.(*Cell).cdr = nil
+			c = c.cdr.(*Cell)
+		}
 	}
 	return nil, idx, errors.New("Unterminated s-expression")
 }
 
-func parse(tokens []string, idx int) (sexp Sexp, ridx int, err error) {
+func parse(tokens []string, idx int) (val Value, ridx int, err error) {
 	if len(tokens) == 0 {
 		return nil, idx, nil
 	}
@@ -88,28 +144,7 @@ func parse(tokens []string, idx int) (sexp Sexp, ridx int, err error) {
 	}
 }
 
-type definition interface {
-	isDefinition()
-	String() string
-}
-
-type proc func(e environment, args Sexp) (Sexp, error)
-func proc_to_func(p proc) func(environment, Sexp) (Sexp, error) {
-	return func(environment, Sexp) (Sexp, error) (p)
-}
-
-func (p proc) String() string {
-	return "<proc " + fmt.Sprintf("%v", proc_to_func(p)) + ">"
-}
-
-func (_ Symbol) isDefinition() {}
-func (_ Number) isDefinition() {}
-func (_ List) isDefinition() {}
-func (_ proc) isDefinition() {}
-
-type environment map[string]definition
-
-func eval(x Sexp, e environment) (definition, error) {
+func eval(x Value, e environment) (Value, error) {
 	switch x.(type) {
 	case Symbol:
 		if def, ok := e[string(x.(Symbol))]; ok {
@@ -117,15 +152,15 @@ func eval(x Sexp, e environment) (definition, error) {
 		} else {
 			return x, nil
 		}
-	case List:
-		x0 := x.(List)[0]
+	case *Cell:
+		x0 := x.(*Cell).car
 		p, err := eval(x0, e)
 		if err != nil {
 			return p, err
 		}
 		switch p.(type) {
 		case proc:
-			return proc_to_func(p.(proc))(e, x.(List)[1:])
+			return from_proc(p.(proc))(x.(*Cell).cdr.(*Cell), e)
 		default:
 			return nil, errors.New(fmt.Sprintf("%v", x0) + " is not a procedure")
 		}
