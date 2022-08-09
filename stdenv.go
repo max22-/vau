@@ -9,10 +9,44 @@ import (
 func stdenv() environment {
 	return map[string]Value {
 		"abc": Number(2),
+			"vau": proc(vau),
+			"def": proc(def),
 			"+": proc(add),
 			"car": proc(car),
 			"list": proc(list),
 	}
+}
+
+func vau(args Value, e environment) (Value, error) {
+	vars := args.(*Cell).car.(*Cell)
+	call_env_sym := args.(*Cell).cdr.(*Cell).car.(Symbol)
+	body := args.(*Cell).cdr.(*Cell).cdr.(*Cell).car
+	return proc(func (args Value, call_env environment) (Value, error) {
+		new_env := make(environment)
+		for k, v := range e {
+			new_env[k] = v
+		}
+		pvars := vars
+		pargs := args
+		for pvars != Nil {
+			new_env[string(pvars.car.(Symbol))] = pargs.(*Cell).car
+			pvars = pvars.cdr.(*Cell)
+			pargs = pargs.(*Cell).cdr
+		}
+		new_env[string(call_env_sym)] = call_env
+		return eval(body, new_env)
+	}), nil
+	
+}
+
+func def(args Value, e environment) (Value, error) {
+	name := args.(*Cell).car.(Symbol)
+	val, err := eval(args.(*Cell).cdr.(*Cell).car, e)
+	if (err != nil) {
+		return val, err
+	}
+	e[string(name)] = val
+	return val, nil
 }
 
 func add(args Value, e environment) (Value, error) {

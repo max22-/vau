@@ -33,6 +33,10 @@ var Nil *Cell = nil
 
 type environment map[string]Value
 type proc func(args Value, e environment) (Value, error)
+func (_ environment) isValue() {}
+func (e environment) String() string {
+	return fmt.Sprintf("%v", map[string]Value(e))
+}
 
 func (_ Symbol) isValue() {}
 func (_ Symbol) isAtom() {}
